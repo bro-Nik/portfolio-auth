@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+pyjwt
+# passlib[bcrypt]==4.3.0
+passlib
+bcrypt==4.3.0
+python-multipart
+python-dotenv
+# email-validator
+asyncpg
+pydantic[email]

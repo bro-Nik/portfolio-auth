@@ -1,0 +1,26 @@
+[tool.pylint."MESSAGES CONTROL"]
+disable = [
+    # import
+    "import-error",
+    "E0401", 
+    "E0611",
+    # doc
+    "missing-docstring",
+    "C0111",
+    "C0114", 
+    "C0115",
+    "C0116"
+]
+
+# [tool.pylint."BASIC"]
+# Игнорировать отсутствие docstring для приватных методов
+# no-docstring-rgx = "^_"
+
+[tool.pylint."DESIGN"]
+min-public-methods = 2
+
+
+# import
+[tool.pyright]
+reportMissingImports = false
+reportMissingModuleSource = false
