@@ -12,12 +12,19 @@ class SecurityService:
     """Сервис для работы с безопасностью"""
 
     @staticmethod
-    def access_token_expires() -> datetime:
-        return datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    def access_token_expires() -> int:
+        minutes = settings.ACCESS_TOKEN_EXPIRE_MINUTES
+        return SecurityService.expires_timestamp(timedelta(minutes=minutes))
 
     @staticmethod
-    def refresh_token_expires() -> datetime:
-        return datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    def refresh_token_expires() -> int:
+        days = settings.REFRESH_TOKEN_EXPIRE_DAYS
+        return SecurityService.expires_timestamp(timedelta(days=days))
+
+    @staticmethod
+    def expires_timestamp(delta: timedelta) -> int:
+        date = datetime.now(timezone.utc) + delta
+        return int(date.timestamp())
 
     @staticmethod
     def create_access_token(user_id: int) -> str:
@@ -52,5 +59,14 @@ class SecurityService:
                 token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM]
             )
             return payload
-        except jwt.JWTError:
-            return None
+        except jwt.PyJWTError:
+            return {}
+
+    @staticmethod
+    def verify_password(plain_password: str, hashed_password: str) -> bool:
+        return pwd_context.verify(plain_password, hashed_password)
+
+    @staticmethod
+    def is_token_expired(expires_at: int) -> bool:
+        """Проверяет истек ли токен по timestamp"""
+        return datetime.now(timezone.utc).timestamp() > expires_at

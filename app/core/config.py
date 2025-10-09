@@ -9,7 +9,7 @@ class Settings:
     DB_NAME: str = os.getenv("DB_NAME", '')
     JWT_SECRET: str = os.getenv("JWT_SECRET", '')
     JWT_ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
 
     @property

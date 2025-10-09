@@ -11,7 +11,7 @@ async def init_db():
                 email VARCHAR(255) UNIQUE NOT NULL,
                 password_hash VARCHAR(255) NOT NULL,
                 is_active BOOLEAN DEFAULT TRUE,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                created_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
             )
         ''')
 
@@ -21,8 +21,8 @@ async def init_db():
                 id SERIAL PRIMARY KEY,
                 user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
                 token TEXT UNIQUE NOT NULL,
-                expires_at TIMESTAMP NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                expires_at BIGINT NOT NULL,
+                created_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
             )
         ''')
 
