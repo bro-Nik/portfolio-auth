@@ -11,3 +11,7 @@ class RefreshTokenCreate(BaseModel):
     user_id: int
     token: str
     expires_at: int
+
+
+class RefreshTokenRequest(BaseModel):
+    token: str
