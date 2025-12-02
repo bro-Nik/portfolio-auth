@@ -1,13 +1,15 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app import routes
+from app.routes import user, admin
 from app.db.connection import db
 from app.db.init_db import init_db
 
 
 app = FastAPI(title="Auth Service")
-app.include_router(routes.router)
+
+app.include_router(user.router)
+app.include_router(admin.router)
 
 
 @app.on_event("startup")
