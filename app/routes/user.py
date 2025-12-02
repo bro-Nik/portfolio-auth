@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, status, Depends
+import time
 
 from app.dependencies import get_auth_service, get_current_user
 from app.models.user import UserLogin
@@ -10,7 +11,10 @@ router = APIRouter()
 
 
 @router.post('/register', response_model=Token)
-async def register(user_data: UserLogin, auth_service: AuthService = Depends(get_auth_service)):
+async def register(
+    user_data: UserLogin,
+    auth_service: AuthService = Depends(get_auth_service)
+) -> Token:
     """Регистрация нового пользователя"""
     try:
         user = await auth_service.register_user(user_data)
@@ -22,9 +26,11 @@ async def register(user_data: UserLogin, auth_service: AuthService = Depends(get
 
 
 @router.post("/login", response_model=Token)
-async def login(user_data: UserLogin, auth_service: AuthService = Depends(get_auth_service)):
+async def login(
+    user_data: UserLogin,
+    auth_service: AuthService = Depends(get_auth_service)
+) -> Token:
     """Вход в систему"""
-    import time
     time.sleep(2)  # ToDo защита от подбора
 
     user = await auth_service.login_user(user_data)
@@ -39,7 +45,10 @@ async def login(user_data: UserLogin, auth_service: AuthService = Depends(get_au
 
 
 @router.post("/refresh", response_model=Token)
-async def refresh_token(request: RefreshTokenRequest, auth_service: AuthService = Depends(get_auth_service)):
+async def refresh_token(
+    request: RefreshTokenRequest,
+    auth_service: AuthService = Depends(get_auth_service)
+) -> Token:
     """Обновление токенов"""
     tokens = await auth_service.refresh_tokens(request.token)
     if not tokens:
@@ -51,9 +60,10 @@ async def refresh_token(request: RefreshTokenRequest, auth_service: AuthService 
     return tokens
 
 
-@router.get("/me")
-async def get_current_user_info(current_user: dict = Depends(get_current_user)):
-    return current_user
+# @router.get("/me")
+# async def get_current_user_info(current_user: dict = Depends(get_current_user)):
+#     time.sleep(1)  # ToDo
+#     return current_user
 
 
 # @router.post("/logout")

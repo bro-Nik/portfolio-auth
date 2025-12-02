@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict
+from app.models.user import User
 import jwt
 from passlib.context import CryptContext
 from app.core.config import settings
@@ -27,9 +28,11 @@ class SecurityService:
         return int(date.timestamp())
 
     @staticmethod
-    def create_access_token(user_id: int) -> str:
+    def create_access_token(user: User) -> str:
         token_payload: Dict[str, Any] = {
-            "sub": str(user_id),
+            "sub": str(user.id),
+            "login": user.email[0 : user.email.find("@")],
+            "roles": [role.value for role in user.roles],
             "type": "access",
             "exp": SecurityService.access_token_expires()
         }
@@ -38,9 +41,9 @@ class SecurityService:
         return access_token
 
     @staticmethod
-    def create_refresh_token(user_id: int) -> str:
+    def create_refresh_token(user: User) -> str:
         token_payload: Dict[str, Any] = {
-            "sub": str(user_id),
+            "sub": str(user.id),
             "type": "refresh", 
             "exp": SecurityService.refresh_token_expires()
         }
