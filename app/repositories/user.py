@@ -1,51 +1,27 @@
-from typing import Optional, List
-from app.models.user import User
+from typing import Optional
+from datetime import datetime, timezone
+
+from sqlalchemy import select 
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models import User
+from app.schemas import UserCreate, UserUpdate
+from app.repositories.base import BaseRepository
 
 
-class UserRepository:
-    def __init__(self, db_pool):
-        self.db_pool = db_pool
+class UserRepository(BaseRepository[User, UserCreate, UserUpdate]):
+    """Репозиторий для работы с пользователями"""
 
-    async def get_user_by_email(self, email: str) -> Optional[User]:
-        async with self.db_pool.acquire() as conn:
-            result = await conn.fetchrow(
-                """
-                SELECT id, email, password_hash, is_active,
-                    COALESCE(roles, ARRAY['user']) as roles
-                FROM users WHERE email = $1
-                """,
-                email
-            )
-            return User(**result) if result else None
+    def __init__(self, db: AsyncSession):
+        super().__init__(User, db)
 
-    async def get_user_by_id(self, user_id: int) -> Optional[User]:
-        async with self.db_pool.acquire() as conn:
-            result = await conn.fetchrow(
-                """
-                SELECT id, email, is_active,
-                    COALESCE(roles, ARRAY['user']) as roles
-                FROM users WHERE id = $1
-                """,
-                user_id
-            )
-            return User(**result) if result else None
+    async def get_by_email(self, email: str) -> Optional[User]:
+        """Найти пользователя по email"""
+        result = await self.db.execute(select(User).where(User.email == email))
+        return result.scalar_one_or_none()
 
-    async def create_user(self, email: str, password_hash: str) -> User:
-        async with self.db_pool.acquire() as conn:
-            result = await conn.fetchrow(
-                "INSERT INTO users (email, password_hash) VALUES ($1, $2) RETURNING id, email",
-                email, password_hash
-            )
-            return User(**result)
-
-    async def get_all_users(self) -> List[User]:
-        """Получить всех пользователей"""
-        async with self.db_pool.acquire() as conn:
-            results = await conn.fetch(
-                """
-                SELECT id, email, password_hash, is_active,
-                    COALESCE(roles, ARRAY['user']) as roles
-                FROM users ORDER BY id
-                """
-            )
-            return [User(**result) for result in results]
+    async def update_last_active(self, user_id) -> None:
+        """Обновить время последней активности пользователя"""
+        user = await self.get(user_id)
+        if user:
+            user.last_active_at = datetime.now(timezone.utc).replace(tzinfo=None)

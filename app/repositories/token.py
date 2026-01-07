@@ -1,42 +1,26 @@
-from app.models.token import RefreshTokenCreate
+from typing import Optional
+
+from sqlalchemy import select 
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models import RefreshToken
+from app.schemas import RefreshTokenCreate, RefreshTokenUpdate
+from app.repositories.base import BaseRepository
 
 
-class TokenRepository:
-    def __init__(self, db_pool):
-        self.db_pool = db_pool
+class TokenRepository(BaseRepository[RefreshToken, RefreshTokenCreate, RefreshTokenUpdate]):
+    """Репозиторий для работы с Refresh токенами"""
+    def __init__(self, db: AsyncSession):
+        super().__init__(RefreshToken, db)
 
-    async def create_refresh_token(self, token_data: RefreshTokenCreate) -> None:
-        async with self.db_pool.acquire() as conn:
-            await conn.execute(
-                "INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)",
-                token_data.user_id, token_data.token, token_data.expires_at
-            )
+    async def get_by_token(self, token: str) -> Optional[RefreshToken]:
+        """Найти refresh токен в БД по его строковому значению"""
+        result = await self.db.execute(select(RefreshToken).where(RefreshToken.token == token))
+        return result.scalar_one_or_none()
 
-    async def get_refresh_token(self, token: str) -> RefreshTokenCreate:
-        async with self.db_pool.acquire() as conn:
-            result = await conn.fetchrow(
-                "SELECT user_id, token, expires_at FROM refresh_tokens WHERE token = $1",
-                token
-            )
-            return RefreshTokenCreate(**result)
-    #
-    # async def update_refresh_token(self, token_id: int, new_token: str, expires_at) -> None:
-    #     async with self.db_pool.acquire() as conn:
-    #         await conn.execute(
-    #             "UPDATE refresh_tokens SET token = $1, expires_at = $2 WHERE id = $3",
-    #             new_token, expires_at, token_id
-    #         )
-    #
-    # async def delete_user_refresh_tokens(self, user_id: int) -> None:
-    #     async with self.db_pool.acquire() as conn:
-    #         await conn.execute(
-    #             "DELETE FROM refresh_tokens WHERE user_id = $1",
-    #             user_id
-    #         )
-    #
-    async def delete_refresh_token(self, token: str) -> None:
-        async with self.db_pool.acquire() as conn:
-            await conn.execute(
-                "DELETE FROM refresh_tokens WHERE token = $1",
-                token
-            )
+    async def delete_user_tokens(self, user_id: int) -> None:
+        """Удалить все refresh токены пользователя"""
+        result = await self.db.execute(select(RefreshToken).where(RefreshToken.user_id == user_id))
+        tokens = result.scalars().all()
+        for token in tokens:
+            self.db.delete(token)
