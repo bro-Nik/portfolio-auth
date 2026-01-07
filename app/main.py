@@ -1,26 +1,13 @@
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 
-from app.routes import user, admin
-from app.db.connection import db
-from app.db.init_db import init_db
+from app.api.user import user_router
+from app.api.admin import admin_router
 
 
 app = FastAPI(title="Auth Service")
 
-app.include_router(user.router)
-app.include_router(admin.router)
-
-
-@app.on_event("startup")
-async def startup():
-    await db.connect()
-    await init_db()
-
-
-@app.on_event("shutdown")
-async def shutdown():
-    await db.disconnect()
+app.include_router(user_router)
+app.include_router(admin_router)
 
 
 if __name__ == "__main__":
