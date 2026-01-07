@@ -1,12 +1,13 @@
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict
-from app.models.user import User
 import jwt
 from passlib.context import CryptContext
+
 from app.core.config import settings
+from app.schemas import User
 
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
 
 
 class SecurityService:
@@ -14,27 +15,31 @@ class SecurityService:
 
     @staticmethod
     def access_token_expires() -> int:
+        """Timestamp истечения access токена"""
         minutes = settings.ACCESS_TOKEN_EXPIRE_MINUTES
         return SecurityService.expires_timestamp(timedelta(minutes=minutes))
 
     @staticmethod
     def refresh_token_expires() -> int:
+        """Timestamp истечения refresh токена"""
         days = settings.REFRESH_TOKEN_EXPIRE_DAYS
         return SecurityService.expires_timestamp(timedelta(days=days))
 
     @staticmethod
     def expires_timestamp(delta: timedelta) -> int:
+        """Timestamp сейчас + delta"""
         date = datetime.now(timezone.utc) + delta
         return int(date.timestamp())
 
     @staticmethod
     def create_access_token(user: User) -> str:
+        """Создает JWT access токен для пользователя"""
         token_payload: Dict[str, Any] = {
-            "sub": str(user.id),
-            "login": user.email[0 : user.email.find("@")],
-            "roles": [role.value for role in user.roles],
-            "type": "access",
-            "exp": SecurityService.access_token_expires()
+            'sub': str(user.id),
+            'login': user.email[0 : user.email.find('@')],
+            'role': user.role,
+            'type': 'access',
+            'exp': SecurityService.access_token_expires()
         }
 
         access_token = jwt.encode(token_payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
@@ -42,10 +47,11 @@ class SecurityService:
 
     @staticmethod
     def create_refresh_token(user: User) -> str:
+        """Создает JWT refresh токен для пользователя"""
         token_payload: Dict[str, Any] = {
-            "sub": str(user.id),
-            "type": "refresh", 
-            "exp": SecurityService.refresh_token_expires()
+            'sub': str(user.id),
+            'type': 'refresh', 
+            'exp': SecurityService.refresh_token_expires()
         }
 
         refresh_token = jwt.encode(token_payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
@@ -53,10 +59,19 @@ class SecurityService:
 
     @staticmethod
     def get_password_hash(password: str) -> str:
+        """Хэширует пароль с использованием bcrypt"""
         return pwd_context.hash(password)
 
     @staticmethod
     def verify_token(token: str) -> dict:
+        """Верифицирует JWT токен.
+        
+        Args:
+            token: JWT токен в виде строки
+            
+        Returns:
+            Раскодированный payload или пустой словарь
+        """
         try:
             payload = jwt.decode(
                 token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM]
@@ -67,6 +82,7 @@ class SecurityService:
 
     @staticmethod
     def verify_password(plain_password: str, hashed_password: str) -> bool:
+        """Проверяет соответствие пароля хэшу"""
         return pwd_context.verify(plain_password, hashed_password)
 
     @staticmethod
