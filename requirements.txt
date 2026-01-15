@@ -8,3 +8,6 @@ python-dotenv
 asyncpg
 pydantic[email]
 sqlalchemy
+pyyaml
+ua-parser
+user-agents

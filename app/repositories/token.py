@@ -23,4 +23,4 @@ class TokenRepository(BaseRepository[RefreshToken, RefreshTokenCreate, RefreshTo
         result = await self.db.execute(select(RefreshToken).where(RefreshToken.user_id == user_id))
         tokens = result.scalars().all()
         for token in tokens:
-            self.db.delete(token)
+            await self.db.delete(token)

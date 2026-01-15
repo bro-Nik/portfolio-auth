@@ -1,10 +1,16 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
 from app.api.admin.endpoints import user
+from app.dependencies import require_role
+from app.schemas import UserRole
 
 
 # Создание основного роутера
-admin_router = APIRouter(prefix="/admin", tags=["admin"])
+admin_router = APIRouter(
+    prefix="/admin",
+    tags="admin",
+    dependencies=[Depends(require_role(UserRole.ADMIN))]
+)
 
 
 # Включение всех endpoints

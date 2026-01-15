@@ -1,5 +1,6 @@
 from .token import RefreshTokenCreate, RefreshTokenUpdate
-from .user import User, UserCreate, UserUpdate, UserRole, UserResponse
+from .user import User, UserCreate, UserUpdate, UserRole, UserResponse, UserLogoutAllRequest
+from .session import LoginSessionCreate, LoginSessionUpdate
 
 
 __all__ = [
@@ -10,4 +11,7 @@ __all__ = [
     "UserUpdate",
     "UserRole",
     "UserResponse",
+    "UserLogoutAllRequest",
+    "LoginSessionCreate",
+    "LoginSessionUpdate",
 ]

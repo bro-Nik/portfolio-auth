@@ -17,9 +17,8 @@ class RefreshTokenCreate(BaseModel):
 
 class RefreshTokenUpdate(BaseModel):
     """Схема для обновления существующего refresh токена"""
-    new_token: str
+    token: str
     expires_at: int
-    token_id: int
 
 
 class RefreshTokenRequest(BaseModel):

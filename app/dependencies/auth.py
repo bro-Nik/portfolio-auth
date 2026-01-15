@@ -1,6 +1,7 @@
 from typing import Callable, Any
 from functools import wraps
 
+from app.services.session import SessionService
 from fastapi import HTTPException, Depends, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,24 +22,9 @@ async def get_auth_service(db: AsyncSession = Depends(get_db)) -> AuthService:
     return AuthService(db)
 
 
-def require_role(required_role: UserRole):
-    """Декоратор для проверки роли пользователя"""
-
-    def decorator(func: Callable) -> Callable:
-        @wraps(func)
-        async def wrapper(
-            *args,
-            user_role: UserRole = Depends(get_current_user_role),
-            **kwargs
-        ) -> Any:
-            if required_role.priority > user_role.priority:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail=f'Недостаточно прав доступа. Требуется роль: {required_role.value}'
-                )
-            return await func(*args, **kwargs)
-        return wrapper
-    return decorator
+async def get_session_service(db: AsyncSession = Depends(get_db)) -> SessionService:
+    """Зависимость для получения сервиса сессий"""
+    return SessionService(db)
 
 
 def get_current_user_payload(
@@ -72,3 +58,17 @@ def get_current_user_role(
         return UserRole(role)
     except ValueError:
         return UserRole.USER
+
+
+def require_role(required_role: UserRole):
+    """Декоратор для проверки роли пользователя"""
+    def role_checker(
+        user_role: UserRole = Depends(get_current_user_role)
+    ):
+        if required_role.priority > user_role.priority:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f'Недостаточно прав доступа. Требуется роль: {required_role.value}'
+            )
+        return user_role
+    return role_checker
