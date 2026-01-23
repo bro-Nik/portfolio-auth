@@ -1,110 +1,127 @@
-from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.exceptions import AuthenticationError
 from app.core.security import SecurityService
-from app.repositories import UserRepository, TokenRepository
-from app.schemas.user import User, UserCreate, UserLogin
-from app.schemas.token import UserTokens, RefreshTokenCreate
+from app.repositories import TokenRepository
+from app.schemas import (
+    RefreshTokenCreate,
+    RefreshTokenUpdate,
+    UserCreateRequest,
+    UserLogin,
+    UserRole,
+    UserSchema,
+    TokensResponse
+)
+from app.services.user import UserService
 
 
 class AuthService:
-    """Сервис аутентификации"""
+    """Сервис аутентификации."""
 
-    def __init__(self, db: AsyncSession):
-        self.db = db
-        self.user_repo = UserRepository(db)
-        self.token_repo = TokenRepository(db)
-        self.security_service = SecurityService
+    def __init__(
+        self,
+        session: AsyncSession,
+        token_repo: TokenRepository | None = None,
+        user_service: UserService | None = None,
+    ) -> None:
+        self.session = session
+        self.token_repo = token_repo or TokenRepository(session)
+        self.user_service = user_service or UserService(session)
+        self.security = SecurityService()
 
-    async def register(self, user_data: UserLogin) -> User:
-        """Регистрация нового пользователя"""
-        # Проверка существования пользователя
-        if await self.user_repo.get_by_email(user_data.email):
-            raise ValueError('Пользователь с таким email уже существует')
+    async def register(self, user_data: UserLogin) -> tuple[TokensResponse, int, int]:
+        """Регистрация пользователя (роль USER)."""
+        user_data.role = UserRole.USER
+        user_data = UserCreateRequest(**user_data.model_dump())
 
-        password_hash = self.security_service.get_password_hash(user_data.password)
-        user_create = UserCreate(
-            email=user_data.email,
-            password_hash=password_hash
+        user = await self.user_service.create_user(user_data)
+        return await self._create_tokens(user)
+
+    async def login(self, user_data: UserLogin) -> tuple[TokensResponse, int, int]:
+        """Аутентификация пользователя."""
+        user = await self.user_service.get_user_by_email(user_data.email)
+        if user and self.security.verify_password(user_data.password, user.password_hash):
+            return await self._create_tokens(user)
+
+        raise AuthenticationError('Неверный email или пароль')
+
+    async def refresh_tokens(self, refresh_token: str) -> tuple[TokensResponse, int, int]:
+        """Обновление токенов с валидацией."""
+        # Валидация токена
+        payload = self.security.verify_token(refresh_token)
+        if payload.get('type') != 'refresh':
+            raise AuthenticationError('Невалидный refresh токен')
+
+        # Проверка в БД
+        stored_token = await self.token_repo.get_by_token(refresh_token)
+        if not stored_token:
+            raise AuthenticationError('Токен не найден в базе')
+
+        # Проверка срока действия
+        if self.security.is_token_expired(stored_token.expires_at):
+            await self.token_repo.delete(stored_token.id)
+            raise AuthenticationError('Токен истек')
+
+        # Генерация новых токенов
+        user_id = int(payload['sub'])
+        user = await self.user_service.get_user_by_id(user_id)
+        access_token, refresh_token, refresh_expires_at = self._generate_tokens(user)
+
+        # Обновление токена в БД
+        token_update = RefreshTokenUpdate(
+            token=refresh_token,
+            expires_at=refresh_expires_at,
         )
 
-        user = await self.user_repo.create(user_create)
-        await self.db.commit()
-        return user
+        await self.token_repo.update(stored_token.id, token_update)
 
-    async def create_tokens(self, user: User) -> UserTokens:
-        """Создание access и refresh токенов"""
-        access_token = self.security_service.create_access_token(user)
-        refresh_token = self.security_service.create_refresh_token(user)
+        tokens = TokensResponse(
+            access_token=access_token,
+            refresh_token=refresh_token,
+        )
+        return tokens, user_id, stored_token.id
+
+    async def logout(self, refresh_token: str) -> bool:
+        """Выход из системы."""
+        token = await self.token_repo.get_by_token(refresh_token)
+        if token:
+            return await self.token_repo.delete(token.id)
+        return False
+
+    async def logout_all(self, user_id: int) -> bool:
+        """Выход из всех устройств."""
+        return bool(await self.token_repo.delete_user_tokens(user_id))
+
+    async def _create_tokens(self, user: UserSchema) -> tuple[TokensResponse, int, int]:
+        """Создание пары токенов с сохранением refresh в БД."""
+        access_token, refresh_token, refresh_expires_at = self._generate_tokens(user)
 
         # Сохраняем refresh токен в базу
-        refresh_payload = self.security_service.verify_token(refresh_token)
-        if not refresh_payload:
-            raise ValueError('Не удалось создать refresh token')
-
         token_data = RefreshTokenCreate(
             user_id=user.id,
             token=refresh_token,
-            expires_at=refresh_payload['exp']
+            expires_at=refresh_expires_at,
         )
 
-        await self.token_repo.create(token_data)
-        await self.user_repo.update_last_active(user.id)
-        await self.db.commit()
+        db_token = await self.token_repo.create(token_data)
+        await self.session.flush()
 
-        return UserTokens(
+        tokens = TokensResponse(
             access_token=access_token,
-            refresh_token=refresh_token
+            refresh_token=refresh_token,
         )
+        return tokens, user.id, db_token.id
 
-    async def login(self, user_data: UserLogin) -> Optional[User]:
-        """Аутентификация пользователя"""
-        user = await self.user_repo.get_by_email(user_data.email)
-        if user and self.security_service.verify_password(user_data.password, user.password_hash):
-            return user
-        return None
-
-
-    async def refresh_tokens(self, refresh_token: str) -> Optional[UserTokens]:
-        """Обновление токенов"""
-        # Проверяем валидность токена
-        payload = self.security_service.verify_token(refresh_token)
-        if not payload or payload.get('type') != 'refresh':
-            return None
-
-        # Проверяем наличие токена в базе
-        stored_token = await self.token_repo.get_by_token(refresh_token)
-        if not stored_token:
-            return None
-
-        # Проверяем expiration
-        if self.security_service.is_token_expired(stored_token.expires_at):
-            await self.token_repo.delete(stored_token.id)
-            await self.db.commit()
-            return None
-
-        # Получаем пользователя
-        user_id = int(payload['sub'])
-        user = await self.user_repo.get(user_id)
+    def _generate_tokens(self, user: UserSchema) -> tuple[str, str, int]:
+        """Генерация токенов."""
         if not user:
-            return None
-        # self.token_repo.update_refresh_token(token_id, new_token, expires_at)
+            raise AuthenticationError('Пользователь не найден')
 
-        # Удаляем старый токен
-        await self.token_repo.delete(stored_token.id)
-        await self.db.commit()
+        access_token = self.security.create_access_token(user)
+        refresh_token = self.security.create_refresh_token(user)
 
-        # Создаем новые токены
-        return await self.create_tokens(user)
+        # Валидация сгенерированного refresh токена
+        refresh_payload = self.security.verify_token(refresh_token)
 
-    async def logout(self, refresh_token: str) -> None:
-        """Выход из системы"""
-        token = await self.token_repo.get_by_token(refresh_token)
-        if token:
-            await self.token_repo.delete(token.id)
-            await self.db.commit()
-
-    async def logout_all(self, user_id: int) -> None:
-        """Выход из всех устройств"""
-        await self.token_repo.delete_user_tokens(user_id)
-        await self.db.commit()
+        refresh_expires_at = refresh_payload['exp']
+        return access_token, refresh_token, refresh_expires_at
