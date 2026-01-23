@@ -1,16 +1,9 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
-from app.api.user.endpoints import auth
+from app.api.user.endpoints import profile
+from app.dependencies import require_role
+from app.schemas import UserRole
 
+user_router = APIRouter(dependencies=[Depends(require_role(UserRole.USER))])
 
-# Создание основного роутера
-# user_router = APIRouter(prefix="/api", tags=["user"])
-user_router = APIRouter()
-
-
-# Включение всех endpoints
-user_router.include_router(auth.router)
-
-
-# Экспорт
-__all__ = ["user_router"]
+user_router.include_router(profile.router)
