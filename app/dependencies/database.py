@@ -1,13 +1,15 @@
-from typing import AsyncGenerator
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-
-from sqlalchemy.ext.asyncio import AsyncSession
+from typing import TYPE_CHECKING
 
 from app.core.database import AsyncSessionLocal
 
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
+
 
 @asynccontextmanager
-async def get_async_db() -> AsyncGenerator[AsyncSession, None]:
+async def get_async_db_session() -> AsyncIterator['AsyncSession']:
     """Асинхронный контекстный менеджер для сессии БД."""
     async with AsyncSessionLocal() as session:
         try:
@@ -18,7 +20,7 @@ async def get_async_db() -> AsyncGenerator[AsyncSession, None]:
             raise
 
 
-async def get_db() -> AsyncGenerator[AsyncSession, None]:
+async def get_db_session() -> AsyncIterator['AsyncSession']:
     """FastAPI dependency для получения асинхронной сессии БД."""
-    async with get_async_db() as session:
+    async with get_async_db_session() as session:
         yield session
