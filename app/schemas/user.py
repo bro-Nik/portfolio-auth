@@ -1,58 +1,95 @@
-from datetime import datetime
-from typing import Optional
+from datetime import UTC, datetime
 from enum import Enum
-from pydantic import BaseModel, EmailStr
+
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, computed_field
+
+from app.core.config import settings
+from app.schemas.session import LoginSessionResponse
 
 
 class UserRole(str, Enum):
-    """Роли пользователей в системе"""
+    """Роли пользователей."""
+
     USER = 'user'
     ADMIN = 'admin'
     MODERATOR = 'moderator'
 
     @property
     def priority(self) -> int:
-        """Приоритет роли для проверки прав (чем выше число, тем выше приоритет)"""
-        priorities = {
+        """Приоритет роли (чем выше, тем больше прав)."""
+        return {
             UserRole.USER: 1,
             UserRole.MODERATOR: 2,
             UserRole.ADMIN: 3,
-        }
-        return priorities.get(self, 1)
+        }.get(self, 1)
 
 
-class User(BaseModel):
-    """Модель пользователя для внутреннего использования"""
+class UserSchema(BaseModel):
+    """Пользователь для внутреннего использования."""
+
     id: int
-    email: EmailStr
-    password_hash: str | None = None
     role: UserRole = UserRole.USER
 
 
-class UserCreate(BaseModel):
-    """Схема для создания нового пользователя"""
+class UserCreateRequest(BaseModel):
+    """Создание нового пользователя."""
+
     email: EmailStr
-    password_hash: str  # Захэшированный пароль
+    password: str
+    role: UserRole = UserRole.USER
+    status: str = 'active'
 
 
-class UserUpdate(BaseModel):
-    """Схема для обновления данных пользователя"""
-    id: int
-    email: EmailStr
-    password: str  # Пароль в открытом виде
+class UserUpdateRequest(BaseModel):
+    """Обновление данных пользователя."""
+
+    role: UserRole = UserRole.USER
+    status: str = 'active'
 
 
 class UserResponse(BaseModel):
-    """Схема ответа с данными пользователя"""
+    """Ответ с данными пользователя."""
+
     id: int
     email: EmailStr
-    role: UserRole = UserRole.USER
-    is_active: bool
-    created_at: Optional[datetime]  # Дата регистрации
-    last_active_at: Optional[datetime]  # Последняя активность
+    role: UserRole
+    status: str
+    created_at: datetime | None = None
+    last_active_at: datetime| None = None
+    total_active_time: int = Field(0, description='Общее время на сайте в секундах')
+    login_sessions: list[LoginSessionResponse] | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+    @computed_field
+    @property
+    def online(self) -> bool:
+        """Определяет, находится ли пользователь онлайн."""
+        if not self.last_active_at:
+            return False
+
+        time_diff = datetime.now(UTC) - self.last_active_at
+        return time_diff.total_seconds() < settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
 
 
 class UserLogin(BaseModel):
-    """Схема входа пользователя в систему"""
+    """Вход пользователя."""
+
     email: EmailStr
-    password: str  # Пароль в открытом виде
+    password: str
+
+
+class UserCreate(BaseModel):
+    """Создание пользователя в БД."""
+
+    email: EmailStr
+    password_hash: str
+    role: UserRole = UserRole.USER
+    status: str = 'active'
+
+
+class UserUpdate(BaseModel):
+    """Обновление пользователя в БД."""
+
+    role: UserRole = UserRole.USER
+    status: str = 'active'
