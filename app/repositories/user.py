@@ -1,27 +1,52 @@
-from typing import Optional
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from sqlalchemy import select 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.models import User
+from app.repositories import BaseRepository
 from app.schemas import UserCreate, UserUpdate
-from app.repositories.base import BaseRepository
 
 
 class UserRepository(BaseRepository[User, UserCreate, UserUpdate]):
-    """Репозиторий для работы с пользователями"""
+    """Репозиторий для работы с пользователями."""
 
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncSession) -> None:
         super().__init__(User, db)
 
-    async def get_by_email(self, email: str) -> Optional[User]:
-        """Найти пользователя по email"""
-        result = await self.db.execute(select(User).where(User.email == email))
-        return result.scalar_one_or_none()
+    async def get_by_email(self, email: str) -> User | None:
+        """Найти пользователя по email."""
+        return await self.get_by(User.email == email)
 
-    async def update_last_active(self, user_id) -> None:
-        """Обновить время последней активности пользователя"""
+    async def update_activity(self, user_id: int) -> None:
+        """Обновить метрики активности пользователя."""
         user = await self.get(user_id)
         if user:
-            user.last_active_at = datetime.now(timezone.utc).replace(tzinfo=None)
+            user.last_active_at = datetime.now(UTC)
+            user.total_active_time += settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
+
+    async def get_many_with_sessions(
+        self,
+        skip: int = 0,
+        limit: int = 20,
+        search: str | None = None,
+        role: str | None = None,
+    ) -> list[User]:
+        """Получить список пользователей с пагинацией и сессиями."""
+        where = []
+
+        # Поиск
+        if search:
+            where.append(User.email.ilike(f'%{search}%'))
+
+        # Фильтр по роли
+        if role:
+            where.append(User.role == role)
+
+        return await self.get_many_by(
+            *where,
+            skip=skip,
+            limit=limit,
+            order_by=[User.created_at.desc()],
+            relations=('login_sessions',),
+        )
