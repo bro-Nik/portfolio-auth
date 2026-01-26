@@ -33,8 +33,3 @@ async def service_info() -> dict:
 app.include_router(public_router)
 app.include_router(user_router)
 app.include_router(admin_router)
-
-
-if __name__ == '__main__':
-    import uvicorn
-    uvicorn.run(app, host='0.0.0.0', port=8000)
