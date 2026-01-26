@@ -12,3 +12,4 @@ pyyaml
 ua-parser
 user-agents
 slowapi
+alembic
