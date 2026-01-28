@@ -1,6 +1,7 @@
-import time
+from datetime import UTC, datetime
 from unittest.mock import patch
 
+from freezegun import freeze_time
 import pytest
 
 from app.core.exceptions import AuthenticationError
@@ -148,17 +149,15 @@ class TestAuthService:
         ):
             await service.refresh_tokens(token)
 
-        # Проверяем что токен удаляется
         service.token_repo.delete.assert_called_once_with(100)
 
+    @freeze_time('2026-01-01 12:00:00')
     @pytest.mark.asyncio
     async def test_refresh_token_near_expiry(self, service, mock_db_user, mock_db_token):
         """Тест обновления токена с истекающим сроком."""
         token = 'almost.expired.token'
-        # Токен истекает через 5 секунд
-        exp_time = int(time.time()) + 5
+        exp_time = int(datetime.now(UTC).timestamp()) + 5  # Токен истекает через 5 секунд
         payload = {'sub': '1', 'type': 'refresh', 'exp': exp_time}
-
         mock_db_token.expires_at = exp_time
 
         with (
@@ -206,7 +205,6 @@ class TestAuthService:
         ):
             result = await service.logout(token)
 
-            # Проверяем что токен удаляется
             service.token_repo.get_by_token.assert_called_once_with(token)
             service.token_repo.delete.assert_called_once_with(100)
 

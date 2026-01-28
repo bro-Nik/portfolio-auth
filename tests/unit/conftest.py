@@ -5,13 +5,13 @@ from unittest.mock import AsyncMock, MagicMock, Mock
 import pytest
 
 from app.core.security import SecurityService
-from app.repositories import TokenRepository, UserRepository
+from app.repositories import SessionRepository, TokenRepository, UserRepository
 from app.schemas import UserLogin, UserRole, UserSchema
 from app.services.user import UserService
 
 
 @pytest.fixture
-def mock_async_session():
+def mock_async_session() -> AsyncMock:
     """Мок асинхронной сессии БД для unit-тестов."""
     session = AsyncMock()
 
@@ -31,31 +31,31 @@ def mock_async_session():
 
 
 @pytest.fixture
-def mock_login_data():
+def mock_login_data() -> UserLogin:
     """Данные для входа пользователя."""
     return UserLogin(email='test@example.com', password='password123')
 
 
 @pytest.fixture
-def mock_user():
+def mock_user() -> UserSchema:
     """Мок пользователя USER роли."""
     return UserSchema(id=1, role=UserRole.USER, email='user@example.com')
 
 
 @pytest.fixture
-def mock_admin():
+def mock_admin() -> UserSchema:
     """Мок пользователя ADMIN роли."""
     return UserSchema(id=2, role=UserRole.ADMIN, email='admin@example.com')
 
 
 @pytest.fixture
-def mock_moderator():
+def mock_moderator() -> UserSchema:
     """Мок пользователя MODERATOR роли."""
     return UserSchema(id=3, role=UserRole.MODERATOR, email='moderator@example.com')
 
 
 @pytest.fixture
-def mock_token_repo(mock_async_session):
+def mock_token_repo(mock_async_session) -> MagicMock:
     """Мок репозитория токенов."""
     repo = MagicMock(spec=TokenRepository)
     repo.session = mock_async_session
@@ -72,7 +72,7 @@ def mock_token_repo(mock_async_session):
 
 
 @pytest.fixture
-def mock_user_repo(mock_async_session):
+def mock_user_repo(mock_async_session) -> MagicMock:
     """Мок репозитория пользователей."""
     repo = MagicMock(spec=UserRepository)
     repo.session = mock_async_session
@@ -89,7 +89,20 @@ def mock_user_repo(mock_async_session):
 
 
 @pytest.fixture
-def mock_user_service(mock_async_session, mock_user_repo):
+def mock_session_repo(mock_async_session) -> MagicMock:
+    """Мок репозитория сессий."""
+    repo = MagicMock(spec=SessionRepository)
+    repo.session = mock_async_session
+
+    repo.get_by_token_id = AsyncMock()
+    repo.create = AsyncMock()
+    repo.update = AsyncMock()
+
+    return repo
+
+
+@pytest.fixture
+def mock_user_service(mock_async_session, mock_user_repo) -> MagicMock:
     """Мок сервиса пользователей."""
     service = MagicMock(spec=UserService)
     service.session = mock_async_session
@@ -106,7 +119,7 @@ def mock_user_service(mock_async_session, mock_user_repo):
 
 
 @pytest.fixture
-def mock_security_service():
+def mock_security_service() -> MagicMock:
     """Мок сервиса безопасности."""
     service = MagicMock(spec=SecurityService)
 
@@ -121,7 +134,7 @@ def mock_security_service():
 
 
 @pytest.fixture
-def mock_db_user():
+def mock_db_user() -> MagicMock:
     """Мок SQLAlchemy модели User."""
     user = MagicMock()
     user.id = 1
@@ -138,7 +151,7 @@ def mock_db_user():
 
 
 @pytest.fixture
-def mock_db_token():
+def mock_db_token() -> MagicMock:
     """Мок SQLAlchemy модели RefreshToken."""
     token = MagicMock()
     token.id = 100
@@ -147,3 +160,17 @@ def mock_db_token():
     token.expires_at = 9999999999
 
     return token
+
+
+@pytest.fixture
+def mock_request() -> MagicMock:
+    """Мок FastAPI Request объекта."""
+    request = MagicMock()
+
+    request.headers = {
+        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'x-real-ip': '192.168.1.1',
+        'x-forwarded-for': '10.0.0.1, 192.168.1.1',
+    }
+
+    return request

@@ -1,6 +1,6 @@
 from datetime import UTC, datetime, timedelta
-from unittest.mock import patch
 
+from freezegun import freeze_time
 import pytest
 
 from app.core.exceptions import AuthenticationError
@@ -39,7 +39,7 @@ class TestSecurityService:
 
         assert service.verify_password(wrong_password, hashed) is False
 
-    def test_edge_case_special_characters(self, service):
+    def test_verify_password_special_characters(self, service):
         """Тест с паролем из спецсимволов."""
         special_password = '!@#$%^&*()_+-=[]{}|;:,.<>?/~`'
         hashed = service.get_password_hash(special_password)
@@ -71,15 +71,14 @@ class TestSecurityService:
 
     def test_verify_expired_token(self, service, mock_user):
         """Тест верификации истекшего токена."""
-        with patch('app.core.security.s') as mock_settings:
-            mock_settings.JWT_SECRET = 'test_secret'
-            mock_settings.JWT_ALGORITHM = 'HS256'
-            mock_settings.ACCESS_TOKEN_EXPIRE_MINUTES = -1  # Истекший токен
-
+        with freeze_time('2026-01-01 12:00:00'):
             token = service.create_access_token(mock_user)
 
-            with pytest.raises(AuthenticationError, match='Токен устарел'):
-                service.verify_token(token)
+        with (
+            freeze_time('2026-01-02 12:00:00'),
+            pytest.raises(AuthenticationError, match='Токен устарел'),
+        ):
+            service.verify_token(token)
 
     def test_verify_invalid_token(self, service):
         """Тест верификации невалидного токена."""
