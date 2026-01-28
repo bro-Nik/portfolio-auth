@@ -1,10 +1,13 @@
 """Фикстуры для UNIT-тестов."""
 
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock
 
 import pytest
 
-from app.schemas import UserRole, UserSchema
+from app.core.security import SecurityService
+from app.repositories import TokenRepository, UserRepository
+from app.schemas import UserLogin, UserRole, UserSchema
+from app.services.user import UserService
 
 
 @pytest.fixture
@@ -30,16 +33,30 @@ def mock_async_session():
 @pytest.fixture
 def mock_login_data():
     """Данные для входа пользователя."""
-    from app.schemas import UserLogin
-
     return UserLogin(email='test@example.com', password='password123')
+
+
+@pytest.fixture
+def mock_user():
+    """Мок пользователя USER роли."""
+    return UserSchema(id=1, role=UserRole.USER, email='user@example.com')
+
+
+@pytest.fixture
+def mock_admin():
+    """Мок пользователя ADMIN роли."""
+    return UserSchema(id=2, role=UserRole.ADMIN, email='admin@example.com')
+
+
+@pytest.fixture
+def mock_moderator():
+    """Мок пользователя MODERATOR роли."""
+    return UserSchema(id=3, role=UserRole.MODERATOR, email='moderator@example.com')
 
 
 @pytest.fixture
 def mock_token_repo(mock_async_session):
     """Мок репозитория токенов."""
-    from app.repositories import TokenRepository
-
     repo = MagicMock(spec=TokenRepository)
     repo.session = mock_async_session
 
@@ -57,8 +74,6 @@ def mock_token_repo(mock_async_session):
 @pytest.fixture
 def mock_user_repo(mock_async_session):
     """Мок репозитория пользователей."""
-    from app.repositories import UserRepository
-
     repo = MagicMock(spec=UserRepository)
     repo.session = mock_async_session
 
@@ -76,8 +91,6 @@ def mock_user_repo(mock_async_session):
 @pytest.fixture
 def mock_user_service(mock_async_session, mock_user_repo):
     """Мок сервиса пользователей."""
-    from app.services.user import UserService
-
     service = MagicMock(spec=UserService)
     service.session = mock_async_session
     service.repo = mock_user_repo
@@ -95,8 +108,6 @@ def mock_user_service(mock_async_session, mock_user_repo):
 @pytest.fixture
 def mock_security_service():
     """Мок сервиса безопасности."""
-    from app.core.security import SecurityService
-
     service = MagicMock(spec=SecurityService)
 
     service.get_password_hash = Mock()

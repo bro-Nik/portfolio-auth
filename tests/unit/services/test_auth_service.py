@@ -9,7 +9,7 @@ from app.services.auth import AuthService
 
 
 class TestAuthService:
-    """Тесты AuthService."""
+    """Тесты для AuthService."""
 
     @pytest.fixture
     def service(self, mock_async_session, mock_token_repo, mock_user_service, mock_security_service):
