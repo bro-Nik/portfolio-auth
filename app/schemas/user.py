@@ -28,6 +28,7 @@ class UserSchema(BaseModel):
     """Пользователь для внутреннего использования."""
 
     id: int
+    email: EmailStr | None = None
     role: UserRole = UserRole.USER
 
 
