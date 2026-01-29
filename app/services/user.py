@@ -83,7 +83,7 @@ class UserService:
     ) -> User:
         """Обновить пользователя."""
         await self._check_permission(current_user, user_id)
-        await self._validate_update_data(user_data, current_user)
+        await self._validate_update_data(user_data, current_user, user_id)
 
         user_to_db = UserUpdate(**user_data.model_dump())
 
@@ -120,9 +120,13 @@ class UserService:
         self,
         user_data: UserUpdateRequest,
         current_user: UserSchema,
+        user_id: int,
     ) -> None:
         """Валидация данных для обновления пользователя."""
         # Проверка правильности роли
+        if user_id == current_user.id and user_data.role.priority <= current_user.role.priority:
+            return
+
         if user_data.role.priority >= current_user.role.priority:
             raise ValidationError('Нельзя назначать права, равные или превышающие ваши')
 
