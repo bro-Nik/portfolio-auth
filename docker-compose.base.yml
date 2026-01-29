@@ -1,0 +1,17 @@
+services:
+  auth-db:
+    image: postgres:18
+    environment:
+      POSTGRES_DB: ${DB_NAME:-auth_db}
+      POSTGRES_USER: ${DB_USER:-auth_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-auth_pass}
+
+  auth:
+    build: .
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${DB_USER:-auth_user}:${DB_PASSWORD:-auth_pass}@auth-db/${DB_NAME:-auth_db}
+      JWT_SECRET: ${JWT_SECRET:-dev-secret}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "${SERVICE_PORT:-8000}"]
+    depends_on:
+      - auth-db

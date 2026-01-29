@@ -1,14 +1,12 @@
-FROM python:3.13
+FROM python:3.13-alpine
 
 WORKDIR /app
 
-# Копируем зависимости и устанавливаем их
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Копируем исходный код
-COPY . .
+COPY --chown=appuser:appgroup . .
 
-EXPOSE 8001
-
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001"]
+USER appuser
