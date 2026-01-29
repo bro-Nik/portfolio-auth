@@ -23,16 +23,17 @@ class AuthService:
         session: AsyncSession,
         token_repo: TokenRepository | None = None,
         user_service: UserService | None = None,
+        security: SecurityService | None = None,
     ) -> None:
         self.session = session
         self.token_repo = token_repo or TokenRepository(session)
         self.user_service = user_service or UserService(session)
-        self.security = SecurityService()
+        self.security = security or SecurityService()
 
     async def register(self, user_data: UserLogin) -> tuple[TokensResponse, int, int]:
         """Регистрация пользователя (роль USER)."""
-        user_data.role = UserRole.USER
         user_data = UserCreateRequest(**user_data.model_dump())
+        user_data.role = UserRole.USER
 
         user = await self.user_service.create_user(user_data)
         return await self._create_tokens(user)
@@ -49,7 +50,7 @@ class AuthService:
         """Обновление токенов с валидацией."""
         # Валидация токена
         payload = self.security.verify_token(refresh_token)
-        if payload.get('type') != 'refresh':
+        if payload.get('type') != 'refresh' or not payload.get('sub'):
             raise AuthenticationError('Невалидный refresh токен')
 
         # Проверка в БД
